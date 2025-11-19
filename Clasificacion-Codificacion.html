@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuestionario: Clasificación y Codificación</title>
+    <!-- Carga de Tailwind CSS para el diseño --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #3b82f6; /* Blue-500 */
+            --secondary-color: #10b981; /* Emerald-500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+        .answer-option {
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* Gray-300 */
+            color: #374151; /* Gray-700 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+        .answer-option:hover:not(.options-disabled) {
+            background-color: #eff6ff; /* Blue-50 */
+            border-color: var(--primary-color);
+        }
+        .correct {
+            background-color: #d1fae5 !important; /* Green-100 */
+            border-color: var(--secondary-color) !important;
+            color: #065f46 !important; /* Green-800 */
+            font-weight: 600;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important; /* Red-100 */
+            border-color: #ef4444 !important; /* Red-500 */
+            color: #991b1b !important; /* Red-800 */
+            font-weight: 600;
+        }
+        .options-disabled > .answer-option {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+
+    <div id="quiz-container" class="w-full max-w-lg bg-white shadow-xl rounded-xl p-6 md:p-8">
+        
+        <!-- Vista de Pregunta --><div id="question-view">
+            <!-- Contador y Puntaje --><div id="status-bar" class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm font-medium text-gray-600 mb-6 space-y-2 sm:space-y-0">
+                <span id="question-counter" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Pregunta 1 de 25</span>
+                <span id="score-display" class="bg-green-100 text-green-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Puntaje: 0</span>
+            </div>
+
+            <h2 id="question-text" class="text-xl font-semibold text-gray-700 mb-6"></h2>
+            <div id="answer-options-wrapper" class="space-y-4">
+                <!-- Opciones se insertan aquí --></div>
+        </div>
+
+        <!-- Vista de Resultados --><div id="results-view" class="hidden text-center p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">¡Lo has conseguido! Has completado el cuestionario.</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-blue-50 p-4 rounded-lg shadow-inner border-t-4 border-blue-400">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Puntuación</p>
+                    <p id="final-score-box" class="text-4xl font-bold text-blue-600">0/25</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg shadow-inner border-t-4 border-green-400">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Precisión</p>
+                    <p id="precision-box" class="text-4xl font-bold text-green-600">0%</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner text-left text-sm border-t-4 border-gray-400">
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-gray-600 font-semibold">Correctas</span>
+                        <span id="correct-count" class="font-bold text-lg text-green-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-gray-600 font-semibold">Incorrectas</span>
+                        <span id="incorrect-count" class="font-bold text-lg text-red-600">0</span>
+                    </div>
+                     <div class="flex justify-between items-center py-1 border-t mt-2 pt-2">
+                        <span class="text-gray-800 font-bold">Total Preguntas</span>
+                        <span id="total-summary" class="font-bold text-lg text-gray-800">25</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón Volver al Inicio (va a index.html) -->
+            <button id="restart-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg mt-8">
+                Volver al Inicio
+            </button>
+        </div>
+
+        <!-- Mensaje de Racional (oculto) --><div id="rationale-box" class="mt-6 p-4 border-l-4 border-blue-500 bg-blue-50 hidden rounded-md shadow-inner">
+            <p class="font-bold text-blue-800">Razón:</p>
+            <p id="rationale-text" class="text-sm text-blue-700 mt-1"></p>
+        </div>
+
+        <!-- Controles --><div id="controls" class="mt-6 flex justify-end space-x-4">
+            <button id="next-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 hidden shadow-md">
+                Siguiente
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Array de 25 preguntas
+        const quizData = [
+            {
+                q: "¿Qué componentes encontramos en una Hoja de Despacho?",
+                options: [
+                    "Fecha, Número de Despacho y Proveedor.",
+                    "SKU, Color y Peso del producto.",
+                    "Nombre del Picker, Hora de Salida y Firma del Gerente.",
+                    "Costo, Margen de Ganancia e Impuesto."
+                ],
+                answer: 0,
+                rationale: "La presentación 'Hojas de Despacho' (Pág. 6) lista Fecha, Número de Despacho y Proveedor como componentes clave."
+            },
+            {
+                q: "¿Qué tipos de Hojas de Despacho podemos encontrar?",
+                options: [
+                    "Hojas para Recepción, Despacho Interno y Devoluciones.",
+                    "Hojas de Tipo A, Tipo B y Tipo C.",
+                    "Hojas Manuales, Digitales y Mixtas.",
+                    "Hojas de Entrada, Salida y Auditoría."
+                ],
+                answer: 0,
+                rationale: "La presentación 'Hojas de Despacho' (Pág. 16) lista variantes para Recepción, Despacho Interno y Devoluciones."
+            },
+            {
+                q: "¿Qué buenas prácticas en el llenado de la Hoja de Despacho debemos considerar?",
+                options: [
+                    "Precisión (en el tracking), Verificación (de datos) y Claridad (en la organización).",
+                    "Rapidez (llenado rápido), Costo (usar papel barato) y Software (solo usar digital).",
+                    "Firma, Sello y Copia física.",
+                    "Usar solo lápiz, escribir en mayúsculas y archivar por color."
+                ],
+                answer: 0,
+                rationale: "La presentación 'Hojas de Despacho' (Pág. 20) destaca la Precisión, Verificación y Claridad como buenas prácticas."
+            },
+            {
+                q: "¿Qué es un método de clasificación?",
+                options: [
+                    "Un método para categorizar productos según su importancia (ej. valor o rotación).",
+                    "Un sistema para asignar un número único (SKU) a un producto.",
+                    "El proceso de poner productos en las estanterías (almacenamiento).",
+                    "Un método de valoración contable como FIFO o LIFO."
+                ],
+                answer: 0,
+                rationale: "La clasificación (Doc. 'Clasificación', Pág. 5) es un método para 'categorizar los productos según su importancia' (valor, rotación, etc.)."
+            },
+            {
+                q: "¿Qué es una clasificación alfanumérica?",
+                options: [
+                    "La combinación de números y letras para identificar productos.",
+                    "Una identificación que usa solo números (ej. SKU).",
+                    "Una identificación que usa solo letras (ej. por familias).",
+                    "Una codificación basada en atributos como color o tamaño."
+                ],
+                answer: 0,
+                rationale: "El documento 'Clasificación' (Pág. 12 y 16) define la codificación alfanumérica como la 'Combinación de números y letras'."
+            },
+            {
+                q: "¿En qué consiste la clasificación ABC?",
+                options: [
+                    "En categorizar productos por valor/rotación (A: alta prioridad, B: media, C: baja).",
+                    "En ordenar los productos alfabéticamente en la bodega.",
+                    "En usar el Principio de Pareto para eliminar el 80% del stock.",
+                    "En contar solo los productos que empiezan con A, B o C."
+                ],
+                answer: 0,
+                rationale: "El documento 'Clasificación' (Pág. 7) lo define como categorizar por importancia (basado en valor y rotación) en A, B, C. "
+            },
+            {
+                q: "¿Nombre 3 métodos de clasificación de productos?",
+                options: [
+                    "Clasificación ABC, Codificación Jerárquica y Codificación por Atributos.",
+                    "FIFO (PEPS), LIFO (UEPS) y PMP (Promedio Ponderado).",
+                    "SKU, EAN y UPC.",
+                    "Kardex Manual, Kardex Digital y WMS."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' describe la Clasificación ABC (Pág. 7), la Codificación Jerárquica (Pág. 18) y la Codificación por Atributos (Pág. 20) como formas de clasificar o agrupar."
+            },
+            {
+                q: "¿Qué es la codificación en una bodega?",
+                options: [
+                    "Un sistema para garantizar una identificación rápida y precisa de los productos.",
+                    "El proceso de pesar y medir todos los productos que llegan.",
+                    "El método de picking por olas.",
+                    "El control de calidad que se realiza en la recepción."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 11) indica que la codificación es 'esencial para garantizar una identificación rápida y precisa'."
+            },
+            {
+                q: "¿Qué métodos de codificación existen?",
+                options: [
+                    "Numérica, Alfabética y Alfanumérica.",
+                    "ABC, Pareto y FIFO.",
+                    "Kardex, WMS y ERP.",
+                    "Picking, Packing y Shipping."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 12) lista Numérica, Alfabética y Alfanumérica como los tipos básicos de codificación."
+            },
+            {
+                q: "¿Qué es la codificación numérica?",
+                options: [
+                    "Identificación mediante solo números (comúnmente usada para SKU).",
+                    "Una combinación de números y letras para mayor flexibilidad.",
+                    "Identificación basada en atributos como color o tamaño.",
+                    "Una identificación que usa solo letras."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 12 y 13) la definen como 'Identificación mediante solo números', usada para SKU."
+            },
+            {
+                q: "¿Qué característica especial tiene la codificación alfanumérica?",
+                options: [
+                    "Ofrece mayor flexibilidad al combinar letras y números para más detalles.",
+                    "Es el método más simple y corto de todos.",
+                    "Solo utiliza códigos EAN y UPC.",
+                    "Es obligatoria para productos perecederos."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 16) destaca su 'Flexibilidad en las combinaciones' y 'mayor variedad... y detalles'."
+            },
+            {
+                q: "¿En qué consiste la clasificación por atributo?",
+                options: [
+                    "En identificar características del producto (color, tamaño, peso, vencimiento).",
+                    "En categorizar productos por su valor de venta (A, B, C).",
+                    "En usar solo números (SKU) para la identificación.",
+                    "En organizar productos por niveles (familia, tipo)."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 20) la define como la 'Representación de características del producto' (color, tamaño, peso, etc.)."
+            },
+            {
+                q: "¿Qué es el sistema KARDEX y para qué sirve?",
+                options: [
+                    "Un sistema (manual o digital) para el control de inventarios que gestiona entradas y salidas.",
+                    "Un tipo de estantería modular utilizada en supermercados.",
+                    "Un método de picking que agrupa pedidos por similitud.",
+                    "Un código de barras estandarizado para comercio internacional."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 24) lo define como 'crucial para el control de inventarios', gestionando 'entradas y salidas'. "
+            },
+            {
+                q: "¿Qué diferencia existe en el registro KARDEX Digital y Manual?",
+                options: [
+                    "El Digital es más rápido, preciso y accesible (tiempo real); el Manual es lento y propenso a errores.",
+                    "El Digital usa letras (alfabético) y el Manual usa números (numérico).",
+                    "El Manual es más caro de implementar que el Digital.",
+                    "No hay ninguna diferencia funcional, solo el medio."
+                ],
+                answer: 0,
+                rationale: "El doc 'Clasificación' (Pág. 26, 30) contrasta la 'falta de eficiencia' y 'errores humanos' del manual con la 'velocidad, precisión y accesibilidad' del digital."
+            },
+            {
+                q: "¿Nombrar las zonas operativas de una bodega?",
+                options: [
+                    "Recepción, Almacenamiento, Picking, Consolidación y Despacho.",
+                    "Oficinas, Casino, Bodega, Sala de Ventas y Estacionamiento.",
+                    "Zona Fría, Zona Seca, Zona Congelada y Zona de Devoluciones.",
+                    "Zona A, Zona B, Zona C (Clasificación ABC)."
+                ],
+                answer: 0,
+                rationale: "El doc 'Area de Picking' (Pág. 7) lista las 5 zonas operativas principales: Recepción, Almacenamiento, Picking, Consolidación y Despacho. "
+            },
+            {
+                q: "¿Qué es el PICKING por Olas?",
+                options: [
+                    "Un método donde se agrupan pedidos por similitud de artículos para reducir desplazamientos.",
+                    "Un método donde cada picker toma un pedido completo de principio a fin.",
+                    "Un método donde cada picker trabaja en una sola sección o zona de la bodega.",
+                    "Una tecnología de picking que usa señales de audio (picking por voz)."
+                ],
+                answer: 0,
+                rationale: "El doc 'Area de Picking' (Pág. 11) define 'Picking por Olas' como 'Los pedidos se agrupan por similitud de artículos' para reducir desplazamientos."
+            },
+            {
+                q: "¿Cómo se obtiene la TRAZABILIDAD en una bodega?",
+                options: [
+                    "Mediante el uso de tecnologías como WMS, escáneres, códigos de barras y/o RFID.",
+                    "Contando manualmente todo el stock al final del día.",
+                    "A través de la capacitación continua del personal en seguridad.",
+                    "Únicamente realizando auditorías internas sorpresivas."
+                ],
+                answer: 0,
+                rationale: "El doc 'Area de Picking' (Pág. 18) y el 'Glosario' (Pág. 47) indican que la trazabilidad se logra con WMS, escáneres, códigos de barras y RFID. [Image of Trazabilidad Logística]"
+            },
+            {
+                q: "¿Qué pasos se deben cumplir en una verificación de documentos en una RECEPCIÓN?",
+                options: [
+                    "Verificar que la cantidad y los productos coincidan con la hoja de despacho/factura.",
+                    "Escanear solo un producto al azar de la carga.",
+                    "Pesar el camión completo antes y después de descargar.",
+                    "Llamar al proveedor por teléfono para confirmar el envío."
+                ],
+                answer: 0,
+                rationale: "El doc 'Hojas de Despacho' (Pág. 10) indica que en la 'Recepción de Pedido' se 'verifica que la cantidad y los productos coincidan con la hoja de despacho'."
+            },
+            {
+                q: "Definición de SUPPLY CHAIN (Cadena de Suministro):",
+                options: [
+                    "La secuencia de procesos y actividades desde la materia prima hasta el cliente final.",
+                    "Únicamente el transporte de última milla (entrega final).",
+                    "El software de gestión de bodega (WMS).",
+                    "El proceso de picking y packing dentro del almacén."
+                ],
+                answer: 0,
+                rationale: "El 'Glosario Logístico' (Pág. 45) define Supply Chain como la 'secuencia de procesos y actividades... desde la obtención de materias primas hasta la entrega al cliente final'."
+            },
+            {
+                q: "¿Qué debe permitir idealmente el diseño del LAYOUT en una bodega?",
+                options: [
+                    "Maximizar la eficiencia del flujo (recepción, almacenaje, picking, etc.).",
+                    "Aumentar la cantidad de estanterías al máximo posible, reduciendo pasillos.",
+                    "Reducir el número de zonas operativas a una sola.",
+                    "Facilitar las zonas de descanso del personal."
+                ],
+                answer: 0,
+                rationale: "El doc 'Area de Picking' (Pág. 6) indica que el Layout está 'Distribuida en zonas... para maximizar la eficiencia'."
+            },
+            {
+                q: "¿Nombrar diferencias entre STOCK PERPETUO y STOCK PERIÓDICO?",
+                options: [
+                    "Perpetuo actualiza en tiempo real (digital); Periódico actualiza en intervalos definidos (manual/conteo).",
+                    "Perpetuo es manual; Periódico es digital.",
+                    "Perpetuo usa FIFO; Periódico usa LIFO.",
+                    "No hay diferencia, son el mismo concepto."
+                ],
+                answer: 0,
+                rationale: "El documento 'Inventarios perpetuos vs. periódicos' (Pág. 26) define la diferencia: 'tiempo real' (Perpetuo) vs. 'intervalos definidos' (Periódico)."
+            },
+            {
+                q: "¿Defina qué es CROSSDOCKING?",
+                options: [
+                    "Un método donde los productos se trasladan de recepción a envío sin almacenamiento intermedio.",
+                    "Un tipo de estantería en forma de cruz.",
+                    "El proceso de verificar dos veces un pedido (double-checking).",
+                    "Una estrategia de almacenamiento a largo plazo."
+                ],
+                answer: 0,
+                rationale: "El 'Glosario Logístico' (Pág. 15) lo define como 'trasladar directamente de la recepción al envío sin almacenamiento intermedio'. "
+            },
+            {
+                q: "¿En qué consiste el JUST IN TIME (JIT)?",
+                options: [
+                    "En reducir al mínimo el inventario, adquiriendo productos justo cuando se necesitan.",
+                    "En mantener un gran exceso de existencias (Stock de Seguridad).",
+                    "En entregar todos los pedidos justo a las 10:00 AM.",
+                    "En usar solo transporte aéreo para máxima velocidad."
+                ],
+                answer: 0,
+                rationale: "El 'Glosario Logístico' (Pág. 30) define JIT como la estrategia de 'reducir al mínimo la cantidad de inventario almacenado... adquiriendo... justo en el momento en que son necesarios'. "
+            },
+            {
+                q: "¿Cuál es el propósito principal del STOCK DE SEGURIDAD?",
+                options: [
+                    "Actuar como un amortiguador (buffer) contra la incertidumbre de la demanda o retrasos del proveedor.",
+                    "Reducir los costos de almacenamiento a largo plazo.",
+                    "Facilitar la clasificación ABC de los productos.",
+                    "Eliminar completamente la necesidad de un sistema Kardex."
+                ],
+                answer: 0,
+                rationale: "El stock de seguridad es un inventario extra para cubrir fluctuaciones inesperadas, actuando como un 'amortiguador' (buffer) contra la incertidumbre (Doc. Stock de Seguridad, Pág. 4)."
+            },
+            {
+                q: "¿Cuál es una de las desventajas principales del MÉTODO LIFO (Last In, First Out) en la gestión de inventarios?",
+                options: [
+                    "El valor del inventario final suele estar subestimado durante períodos de inflación (pues sale lo más caro y queda lo más antiguo/barato).",
+                    "Es el método más complejo de aplicar con productos perecederos.",
+                    "Requiere un sistema WMS muy avanzado para funcionar.",
+                    "Aumenta el riesgo de obsolescencia de los productos."
+                ],
+                answer: 0,
+                rationale: "Aunque LIFO es menos común, su desventaja contable principal es que el inventario final queda valorado a precios antiguos (más bajos), subestimando su valor real durante la inflación. (Doc. Glosario, Pág. 31)."
+            }
+        ];
+
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let quizActive = true;
+        const totalQuestions = quizData.length; // Total es 25
+
+        // Selectores de elementos del DOM
+        const $ = selector => document.querySelector(selector);
+        const $all = selector => document.querySelectorAll(selector);
+
+        const questionText = $("#question-text");
+        const answerOptionsWrapper = $("#answer-options-wrapper");
+        const questionCounter = $("#question-counter");
+        const scoreDisplay = $("#score-display");
+        const nextButton = $("#next-button");
+        const rationaleBox = $("#rationale-box");
+        const rationaleText = $("#rationale-text");
+        const questionView = $("#question-view");
+        const resultsView = $("#results-view");
+        const restartButton = $("#restart-button");
+
+        // Selectores para la pantalla de resultados
+        const finalScoreBox = $("#final-score-box");
+        const precisionBox = $("#precision-box");
+        const correctCountEl = $("#correct-count");
+        const incorrectCountEl = $("#incorrect-count");
+        const totalSummaryEl = $("#total-summary"); 
+
+        /**
+         * Carga la pregunta actual en la UI
+         */
+        function loadQuestion() {
+            if (currentQuestionIndex >= totalQuestions) {
+                showResults();
+                return;
+            }
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            
+            quizActive = true;
+            nextButton.classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+
+            questionText.innerHTML = `${currentQuestionIndex + 1}. ${currentQuestion.q}`; // Usamos innerHTML por si hay negritas
+            questionCounter.textContent = `Pregunta ${currentQuestionIndex + 1} de ${totalQuestions}`;
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            
+            answerOptionsWrapper.innerHTML = '';
+            answerOptionsWrapper.classList.remove('options-disabled'); 
+            
+            currentQuestion.options.forEach((optionText, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'answer-option';
+                optionDiv.textContent = optionText;
+                optionDiv.setAttribute('data-index', index);
+                
+                optionDiv.addEventListener('click', () => checkAnswer(index, optionDiv));
+                answerOptionsWrapper.appendChild(optionDiv);
+            });
+        }
+
+        /**
+         * Comprueba la respuesta, da feedback y muestra el botón Siguiente.
+         */
+        function checkAnswer(selectedIndex, selectedElement) {
+            if (!quizActive) return; 
+            quizActive = false; 
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuestion.answer;
+
+            answerOptionsWrapper.classList.add('options-disabled');
+
+            const correctElement = $(`[data-index='${currentQuestion.answer}']`);
+
+            if (isCorrect) {
+                score++;
+                selectedElement.classList.add('correct');
+            } else {
+                selectedElement.classList.add('incorrect');
+                if (correctElement) {
+                    correctElement.classList.add('correct'); 
+                }
+            }
+            
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            rationaleText.textContent = currentQuestion.rationale;
+            rationaleBox.classList.remove('hidden');
+            nextButton.classList.remove('hidden'); 
+        }
+
+        function handleNext() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        /**
+         * Muestra la pantalla de resultados con el formato solicitado.
+         */
+        function showResults() {
+            questionView.classList.add('hidden');
+            $("#controls").classList.add('hidden');
+            $("#status-bar").classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+            resultsView.classList.remove('hidden');
+            
+            const correctCount = score;
+            const incorrectCount = totalQuestions - score;
+            const precision = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+            finalScoreBox.textContent = `${correctCount}/${totalQuestions}`;
+            precisionBox.textContent = `${precision}%`;
+            correctCountEl.textContent = correctCount;
+            incorrectCountEl.textContent = incorrectCount;
+            totalSummaryEl.textContent = totalQuestions; 
+        }
+
+        /**
+         * El botón de reinicio ahora navega a index.html
+         */
+        function restartQuiz() {
+            // Asumiendo que index.html es la página principal
+            window.location.href = 'index.html';
+        }
+
+        // Asignar Eventos
+        nextButton.addEventListener('click', handleNext);
+        restartButton.addEventListener('click', restartQuiz);
+
+        // Iniciar el quiz
+        loadQuestion();
+    </script>
+</body>
+</html>
