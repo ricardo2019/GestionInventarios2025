@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuestionario de Gestión de Inventarios</title>
+    <!-- Carga de Tailwind CSS para el diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuración de fuente y color base */
+        :root {
+            --primary-color: #3b82f6; /* Blue-500 */
+            --secondary-color: #10b981; /* Emerald-500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+        /* Estilo para opciones de respuesta */
+        .answer-option {
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* Gray-300 */
+            color: #374151; /* Gray-700 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+        .answer-option:hover:not(.options-disabled) {
+            background-color: #eff6ff; /* Blue-50 */
+            border-color: var(--primary-color);
+        }
+        .correct {
+            background-color: #d1fae5 !important; /* Green-100 */
+            border-color: var(--secondary-color) !important;
+            color: #065f46 !important; /* Green-800 */
+            font-weight: 600;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important; /* Red-100 */
+            border-color: #ef4444 !important; /* Red-500 */
+            color: #991b1b !important; /* Red-800 */
+            font-weight: 600;
+        }
+        .options-disabled > .answer-option {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+
+    <div id="quiz-container" class="w-full max-w-lg bg-white shadow-xl rounded-xl p-6 md:p-8">
+        
+        <!-- Vista de Pregunta -->
+        <div id="question-view">
+            <!-- Contador y Puntaje -->
+            <div id="status-bar" class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm font-medium text-gray-600 mb-6 space-y-2 sm:space-y-0">
+                <span id="question-counter" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Pregunta 1 de 25</span>
+                <span id="score-display" class="bg-green-100 text-green-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Puntaje: 0</span>
+            </div>
+
+            <h2 id="question-text" class="text-xl font-semibold text-gray-700 mb-6"></h2>
+            <div id="answer-options-wrapper" class="space-y-4">
+                <!-- Opciones se insertan aquí -->
+            </div>
+        </div>
+
+        <!-- Vista de Resultados (Formato de 3 Cajas) -->
+        <div id="results-view" class="hidden text-center p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">¡Lo has conseguido! Has completado el cuestionario.</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <!-- Puntuación -->
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Puntuación</p>
+                    <p id="final-score-box" class="text-4xl font-bold text-gray-800">0/25</p>
+                </div>
+                <!-- Precisión -->
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Precisión</p>
+                    <p id="precision-box" class="text-4xl font-bold text-gray-800">0%</p>
+                </div>
+                <!-- Conteo -->
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner text-left text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Correctas</span>
+                        <span id="correct-count" class="font-semibold text-green-600">0</span>
+                    </div>
+                    <div class="flex justify-between mt-2">
+                        <span class="text-gray-600">Incorrectas</span>
+                        <span id="incorrect-count" class="font-semibold text-red-600">0</span>
+                    </div>
+                    <div class="flex justify-between mt-2">
+                        <span class="text-gray-600">Omitidas</span>
+                        <span id="omitted-count" class="font-semibold text-gray-800">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón Volver al Inicio (va a index.html) -->
+            <button id="restart-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg">
+                Volver al Inicio
+            </button>
+        </div>
+
+        <!-- Mensaje de Racional (oculto) -->
+        <div id="rationale-box" class="mt-6 p-4 border-l-4 border-blue-500 bg-blue-50 hidden rounded-md shadow-inner">
+            <p class="font-bold text-blue-800">Razón:</p>
+            <p id="rationale-text" class="text-sm text-blue-700 mt-1"></p>
+        </div>
+
+        <!-- Controles -->
+        <div id="controls" class="mt-6 flex justify-end space-x-4">
+            <button id="next-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 hidden shadow-md">
+                Siguiente
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Array de 25 preguntas
+        const quizData = [
+            {
+                q: "¿Cómo se define el Control de Inventarios?",
+                options: [
+                    "Un proceso para planificar campañas de marketing y publicidad.",
+                    "Un proceso clave para la gestión eficiente de recursos, equilibrando oferta y demanda y optimizando costos.",
+                    "Un cálculo contable para determinar la depreciación de activos fijos.",
+                    "Un método para aumentar la cantidad de proveedores y diversificar riesgos.",
+                ],
+                answer: 1, 
+                rationale: "El Control de Inventarios es fundamental para el equilibrio operativo, asegurando que los productos estén disponibles sin generar pérdidas innecesarias ni costos excesivos.",
+            },
+            {
+                q: "¿Para qué sirve el Control de Inventario?",
+                options: [
+                    "Reducir el capital invertido en activos fijos y mobiliario.",
+                    "Establecer la estrategia de precios de venta al público en función de la competencia.",
+                    "Garantizar la disponibilidad de productos, minimizando faltantes y evitando excesos que generan sobrecostos.",
+                    "Auditar la gestión financiera y el flujo de caja diario.",
+                ],
+                answer: 2, 
+                rationale: "La función principal se centra en la disponibilidad de productos, lo cual impacta directamente en la venta y la eficiencia operativa.",
+            },
+            {
+                q: "¿Cuál NO es un objetivo fundamental del Control de Inventarios?",
+                options: [
+                    "Asegurar la continuidad operativa.",
+                    "Aumentar el gasto en tecnología de refrigeración.",
+                    "Reducir costos de almacenamiento.",
+                    "Mejorar la satisfacción del cliente.",
+                ],
+                answer: 1, 
+                rationale: "Los objetivos se centran en la eficiencia operativa, la reducción de costos de almacenamiento y la mejora de la satisfacción del cliente, no en el aumento del gasto.",
+            },
+            {
+                q: "¿Qué tipos de inventarios nombramos, basados en el estado del producto?",
+                options: [
+                    "Contable, Financiero, Tributario y Operacional.",
+                    "Fijo, Variable, Estacional y Promocional.",
+                    "De Alto, Medio y Bajo riesgo.",
+                    "Inventario de materias primas, productos en proceso, terminados y mercancía en tránsito.",
+                ],
+                answer: 3, 
+                rationale: "La clasificación por estado incluye materias primas, productos en proceso, productos terminados y mercancía en tránsito.",
+            },
+            {
+                q: "¿En qué consiste el Control de Inventario ABC?",
+                options: [
+                    "En calcular el costo promedio de todos los productos en stock.",
+                    "En priorizar productos según su valor y rotación (A: alta prioridad, B: media, C: baja).",
+                    "En asegurar que el último producto que entró sea el primero en salir.",
+                    "En clasificar los productos solo por su volumen de almacenamiento.",
+                ],
+                answer: 1, 
+                rationale: "El método ABC (Principio de Pareto) asigna la máxima prioridad de control (Categoría A) a los productos que representan el mayor valor.",
+            },
+            {
+                q: "¿En qué consiste el método FIFO (First In, First Out)?",
+                options: [
+                    "En vender el último producto comprado al costo más bajo.",
+                    "En calcular el costo del inventario promediando todas las compras.",
+                    "En asegurar que el stock más antiguo (Primero en Entrar) sea el primero en venderse (Primero en Salir).",
+                    "En priorizar la venta de productos sin fecha de vencimiento.",
+                ],
+                answer: 2, 
+                rationale: "FIFO es esencial para gestionar productos perecederos, garantizando que el stock más antiguo sea el primero en salir.",
+            },
+            {
+                q: "¿En qué consiste el método LIFO (Last In, First Out)?",
+                options: [
+                    "En la suposición de que el último inventario que ingresó a la bodega es el primero en venderse o salir.",
+                    "En calcular el costo del inventario con base en el promedio móvil.",
+                    "En utilizar solo para productos de Categoría A.",
+                    "En asegurar la rotación rápida de inventario perecedero.",
+                ],
+                answer: 0, 
+                rationale: "LIFO se basa en la suposición de que el último inventario comprado es el primero en ser utilizado o vendido, lo opuesto a FIFO.",
+            },
+            {
+                q: "¿En qué consiste el método PMP (Promedio Ponderado)?",
+                options: [
+                    "En establecer el Nivel de Reorden basado en la demanda histórica.",
+                    "En determinar qué tan rápido se venden los productos en la sala.",
+                    "En calcular un costo promedio después de cada nueva compra para suavizar las fluctuaciones de precios.",
+                    "En priorizar los productos según su nivel de obsolescencia.",
+                ],
+                answer: 2, 
+                rationale: "El PMP (o PPP) calcula un costo promedio después de cada nueva compra, lo que minimiza el impacto de los cambios de precios.",
+            },
+            {
+                q: "¿Qué comprende el Ciclo del Inventario?",
+                options: [
+                    "Solo la compra y la venta de productos.",
+                    "La recepción, almacenamiento, reposición, conteo y despacho de productos.",
+                    "Únicamente el cálculo de la merma.",
+                    "La fase de auditoría financiera y contable exclusivamente.",
+                ],
+                answer: 1, 
+                rationale: "El ciclo completo incluye todas las etapas físicas del manejo del producto dentro de la operación.",
+            },
+            {
+                q: "¿En qué áreas podemos realizar registros de la carga?",
+                options: [
+                    "Solo en el área de bodega principal.",
+                    "Área de Recursos Humanos.",
+                    "En puntos clave como la recepción de mercancía, despacho y cualquier movimiento interno.",
+                    "Área de transporte para el control de flotas vehiculares.",
+                ],
+                answer: 2, 
+                rationale: "El registro de la carga (movimiento de inventario) es crucial en la recepción, almacenamiento, picking y despacho.",
+            },
+            {
+                q: "¿Qué consideraciones de la carga debemos tener en procesos de almacenamiento?",
+                options: [
+                    "Considerar el color de las estanterías únicamente.",
+                    "Consideraciones de Marketing y Publicidad.",
+                    "La rotación, categoría, condiciones de conservación (temperatura) y organización.",
+                    "La planificación de las vacaciones del personal.",
+                ],
+                answer: 2, 
+                rationale: "Las consideraciones se centran en el manejo adecuado (conservación) y la eficiencia del layout (rotación, categoría).",
+            },
+            {
+                q: "¿Debe existir concordancia entre carga sistémica y física?",
+                options: [
+                    "No, son procesos independientes.",
+                    "Solo es necesaria para productos de bajo costo (Categoría C).",
+                    "Sí, es fundamental para determinar con precisión la rentabilidad, controlar la merma y asegurar la disponibilidad.",
+                    "Es un requisito solo para auditorías externas.",
+                ],
+                answer: 2, 
+                rationale: "La concordancia (Exactitud de Inventario) es vital. Una diferencia impacta la rentabilidad (merma) y la satisfacción del cliente (quiebres de stock).",
+            },
+            {
+                q: "¿Qué función cumple un Código de Barra/HU/SKU?",
+                options: [
+                    "Determinar la capacidad máxima de almacenamiento de la bodega.",
+                    "Servir como herramientas de identificación única, registro y trazabilidad de los productos.",
+                    "Calcular el costo de oportunidad del capital inmovilizado.",
+                    "Establecer las políticas de crédito para los clientes.",
+                ],
+                answer: 1, 
+                rationale: "Estas tecnologías (SKU, Códigos de barras) son esenciales para la automatización, permitiendo una identificación rápida y un registro preciso.",
+            },
+            {
+                q: "¿Qué beneficio de los sistemas de administración de carga (ERP/WMS) podemos obtener?",
+                options: [
+                    "Permitir la actualización de los registros de inventario en tiempo real.",
+                    "Reducir la necesidad de capacitar al personal en logística.",
+                    "Obligar al uso exclusivo del método LIFO.",
+                    "Incrementar los riesgos de obsolescencia tecnológica.",
+                ],
+                answer: 0, 
+                rationale: "Los sistemas ERP o WMS integran datos en tiempo real, permitiendo una gestión de inventario perpetuo.",
+            },
+            {
+                q: "¿Cuáles son Indicadores de Gestión (KPI) de inventarios?",
+                options: [
+                    "El número de empleados por hora.",
+                    "La Tasa de Rotación de Inventario, Nivel de Servicio y Exactitud de Inventario.",
+                    "El costo de la publicidad anual.",
+                    "El número de días festivos del año.",
+                ],
+                answer: 1, 
+                rationale: "Rotación, Nivel de Servicio y Exactitud son KPIs logísticos clave que miden la eficiencia de la gestión.",
+            },
+            {
+                q: "¿Qué es una Merma?",
+                options: [
+                    "Una ganancia extraordinaria por la venta de productos fuera de temporada.",
+                    "La pérdida de inventario debido a deterioro, vencimiento o robo.",
+                    "El stock de seguridad que se mantiene como reserva.",
+                    "El costo de la mano de obra utilizada en el picking.",
+                ],
+                answer: 1, 
+                rationale: "La merma es la reducción o pérdida de inventario que ocurre de forma no planeada, afectando las existencias físicas y el valor contable.",
+            },
+            {
+                q: "¿Qué produce para una empresa una Merma no controlada?",
+                options: [
+                    "La mejora inmediata de la imagen corporativa.",
+                    "La reducción de los costos de almacenamiento.",
+                    "El aumento de la confianza del consumidor.",
+                    "La generación de sobrecostos e impacto negativo en la rentabilidad.",
+                ],
+                answer: 3, 
+                rationale: "Dado que la merma es una pérdida de valor ya invertido, genera sobrecostos que deterioran el margen de utilidad y la rentabilidad del negocio.",
+            },
+            {
+                q: "¿Qué medidas existen para el control de Mermas?",
+                options: [
+                    "Políticas de control interno, registro de desperdicios y análisis de causas.",
+                    "Aumentar el Nivel de Reorden sin importar la demanda.",
+                    "Clasificar todos los productos como Categoría C.",
+                    "Eliminar el uso de códigos de barras.",
+                ],
+                answer: 0, 
+                rationale: "El control de mermas se basa en políticas de control (como auditorías) y el análisis de sus causas (registro de desperdicios).",
+            },
+            {
+                q: "¿Qué es y qué función cumple una Auditoría Interna de Inventarios?",
+                options: [
+                    "Determinar la estrategia de precios de los productos y descuentos.",
+                    "Verificar la validez y precisión de los registros (sistémico) mediante conteos físicos (cíclicos o anuales).",
+                    "Negociar el tiempo de entrega con los proveedores.",
+                    "Diseñar el layout de la sala de ventas.",
+                ],
+                answer: 1, 
+                rationale: "La auditoría es el proceso de verificación (conteo cíclico o anual) que garantiza la exactitud de los datos del sistema respecto a la realidad física.",
+            },
+            {
+                q: "¿Qué beneficio se obtiene al estandarizar un proceso en la bodega?",
+                options: [
+                    "Asegurar que las operaciones se realicen de manera uniforme, con calidad y con la mínima cantidad de errores.",
+                    "Permitir que cada empleado use un método diferente según su preferencia.",
+                    "Reducir el gasto en materia prima.",
+                    "Incrementar la complejidad de las tareas logísticas.",
+                ],
+                answer: 0, 
+                rationale: "La estandarización busca la uniformidad y consistencia en la ejecución de tareas, lo que reduce la variabilidad y minimiza la posibilidad de errores humanos.",
+            },
+            // --- 5 Preguntas Nuevas (21-25) ---
+            {
+                q: "¿Qué es la 'Rotación de Inventario'?",
+                options: [
+                    "El proceso de mover físicamente el stock dentro de la bodega.",
+                    "Un indicador que mide cuántas veces se renueva (vende) el inventario en un período.",
+                    "La política de cambiar los precios de los productos cada mes.",
+                    "El nombre del software usado para el conteo cíclico."
+                ],
+                answer: 1, 
+                rationale: "La Rotación de Inventario (Pág. 20) es un indicador clave de eficiencia que mide la velocidad con la que se vende el stock."
+            },
+            {
+                q: "¿Qué mide la 'Exactitud del Inventario' (ERI)?",
+                options: [
+                    "Qué tan rápido se entrega un pedido al cliente.",
+                    "La concordancia entre los registros del sistema y el inventario físico real.",
+                    "El porcentaje de productos de Categoría A.",
+                    "El costo de la última compra realizada."
+                ],
+                answer: 1, 
+                rationale: "La Exactitud del Inventario (Pág. 21) es el KPI que evalúa qué tan confiables son los datos del sistema comparados con la realidad física."
+            },
+            {
+                q: "Las 'Buenas Prácticas en Inventarios' mencionan tres claves, ¿cuáles son?",
+                options: [
+                    "FIFO, LIFO y PMP.",
+                    "Comprar barato, almacenar mucho y vender rápido.",
+                    "Recepción, Almacenamiento y Despacho.",
+                    "Capacitación, estandarización de procesos y uso de tecnología."
+                ],
+                answer: 3, 
+                rationale: "Según la página 30, estas tres son las claves fundamentales para las buenas prácticas."
+            },
+            {
+                q: "¿Cuál es un objetivo clave de la 'Sostenibilidad en Inventarios' en un supermercado?",
+                options: [
+                    "Aumentar el uso de empaques plásticos.",
+                    "Evitar el desperdicio de alimentos y optimizar la energía (ej. refrigeración).",
+                    "Comprar únicamente productos importados.",
+                    "Vender productos después de su fecha de vencimiento."
+                ],
+                answer: 1, 
+                rationale: "La Sostenibilidad (Pág. 31) se enfoca en reducir el impacto ambiental, siendo el desperdicio de alimentos y el consumo de energía los puntos clave."
+            },
+            {
+                q: "Según las conclusiones, el control de inventarios es esencial para tres pilares. ¿Cuáles son?",
+                options: [
+                    "Marketing, Publicidad y Ventas.",
+                    "Eficiencia, rentabilidad y satisfacción del cliente.",
+                    "Contabilidad, Finanzas y Recursos Humanos.",
+                    "ISO 9001, ISO 14001 y OHSAS 18001."
+                ],
+                answer: 1, 
+                rationale: "La conclusión (Pág. 32) resume que un buen control de inventarios impacta positivamente en la eficiencia operativa, la rentabilidad del negocio y la satisfacción del cliente."
+            }
+        ];
+
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let quizActive = true;
+        const totalQuestions = quizData.length; // Total es 25
+
+        // Selectores de elementos del DOM
+        const $ = selector => document.querySelector(selector);
+        const $all = selector => document.querySelectorAll(selector);
+
+        const questionText = $("#question-text");
+        const answerOptionsWrapper = $("#answer-options-wrapper");
+        const questionCounter = $("#question-counter");
+        const scoreDisplay = $("#score-display");
+        const nextButton = $("#next-button");
+        const rationaleBox = $("#rationale-box");
+        const rationaleText = $("#rationale-text");
+        const questionView = $("#question-view");
+        const resultsView = $("#results-view");
+        const restartButton = $("#restart-button");
+
+        // Selectores para la pantalla de resultados
+        const finalScoreBox = $("#final-score-box");
+        const precisionBox = $("#precision-box");
+        const correctCountEl = $("#correct-count");
+        const incorrectCountEl = $("#incorrect-count");
+        const totalSummaryEl = $("#total-summary"); 
+
+        /**
+         * Carga la pregunta actual en la UI
+         */
+        function loadQuestion() {
+            if (currentQuestionIndex >= totalQuestions) {
+                showResults();
+                return;
+            }
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            
+            quizActive = true;
+            nextButton.classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+
+            questionText.textContent = `${currentQuestionIndex + 1}. ${currentQuestion.q}`;
+            questionCounter.textContent = `Pregunta ${currentQuestionIndex + 1} de ${totalQuestions}`;
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            
+            answerOptionsWrapper.innerHTML = '';
+            answerOptionsWrapper.classList.remove('options-disabled'); 
+            
+            currentQuestion.options.forEach((optionText, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'answer-option';
+                optionDiv.textContent = optionText;
+                optionDiv.setAttribute('data-index', index);
+                
+                optionDiv.addEventListener('click', () => checkAnswer(index, optionDiv));
+                answerOptionsWrapper.appendChild(optionDiv);
+            });
+        }
+
+        /**
+         * Comprueba la respuesta, da feedback y muestra el botón Siguiente.
+         */
+        function checkAnswer(selectedIndex, selectedElement) {
+            if (!quizActive) return; 
+            quizActive = false; 
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuestion.answer;
+
+            answerOptionsWrapper.classList.add('options-disabled');
+
+            const correctElement = $(`[data-index='${currentQuestion.answer}']`);
+
+            if (isCorrect) {
+                score++;
+                selectedElement.classList.add('correct');
+            } else {
+                selectedElement.classList.add('incorrect');
+                if (correctElement) {
+                    correctElement.classList.add('correct'); 
+                }
+            }
+            
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            rationaleText.textContent = currentQuestion.rationale;
+            rationaleBox.classList.remove('hidden');
+            nextButton.classList.remove('hidden'); 
+        }
+
+        function handleNext() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        /**
+         * Muestra la pantalla de resultados con el formato solicitado.
+         */
+        function showResults() {
+            questionView.classList.add('hidden');
+            $("#controls").classList.add('hidden');
+            $("#status-bar").classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+            resultsView.classList.remove('hidden');
+            
+            const correctCount = score;
+            const incorrectCount = totalQuestions - score;
+            const precision = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+            finalScoreBox.textContent = `${correctCount}/${totalQuestions}`;
+            precisionBox.textContent = `${precision}%`;
+            correctCountEl.textContent = correctCount;
+            incorrectCountEl.textContent = incorrectCount;
+            totalSummaryEl.textContent = totalQuestions; 
+        }
+
+        /**
+         * R2: El botón de reinicio ahora navega a index.html
+         */
+        function restartQuiz() {
+            window.location.href = 'index.html';
+        }
+
+        // Asignar Eventos
+        nextButton.addEventListener('click', handleNext);
+        restartButton.addEventListener('click', restartQuiz);
+
+        // Iniciar el quiz
+        loadQuestion();
+    </script>
+</body>
+</html>

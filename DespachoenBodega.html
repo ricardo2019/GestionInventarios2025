@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuestionario: Hojas de Despacho</title>
+    <!-- Carga de Tailwind CSS para el diseño --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #3b82f6; /* Blue-500 */
+            --secondary-color: #10b981; /* Emerald-500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+        .answer-option {
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* Gray-300 */
+            color: #374151; /* Gray-700 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+        .answer-option:hover:not(.options-disabled) {
+            background-color: #eff6ff; /* Blue-50 */
+            border-color: var(--primary-color);
+        }
+        .correct {
+            background-color: #d1fae5 !important; /* Green-100 */
+            border-color: var(--secondary-color) !important;
+            color: #065f46 !important; /* Green-800 */
+            font-weight: 600;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important; /* Red-100 */
+            border-color: #ef4444 !important; /* Red-500 */
+            color: #991b1b !important; /* Red-800 */
+            font-weight: 600;
+        }
+        .options-disabled > .answer-option {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+
+    <div id="quiz-container" class="w-full max-w-lg bg-white shadow-xl rounded-xl p-6 md:p-8">
+        
+        <!-- Vista de Pregunta --><div id="question-view">
+            <!-- Contador y Puntaje --><div id="status-bar" class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm font-medium text-gray-600 mb-6 space-y-2 sm:space-y-0">
+                <span id="question-counter" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Pregunta 1 de 25</span>
+                <span id="score-display" class="bg-green-100 text-green-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Puntaje: 0</span>
+            </div>
+
+            <h2 id="question-text" class="text-xl font-semibold text-gray-700 mb-6"></h2>
+            <div id="answer-options-wrapper" class="space-y-4">
+                <!-- Opciones se insertan aquí --></div>
+        </div>
+
+        <!-- Vista de Resultados --><div id="results-view" class="hidden text-center p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">¡Lo has conseguido! Has completado el cuestionario.</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-blue-50 p-4 rounded-lg shadow-inner border-t-4 border-blue-400">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Puntuación</p>
+                    <p id="final-score-box" class="text-4xl font-bold text-blue-600">0/25</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg shadow-inner border-t-4 border-green-400">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Precisión</p>
+                    <p id="precision-box" class="text-4xl font-bold text-green-600">0%</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner text-left text-sm border-t-4 border-gray-400">
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-gray-600 font-semibold">Correctas</span>
+                        <span id="correct-count" class="font-bold text-lg text-green-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-gray-600 font-semibold">Incorrectas</span>
+                        <span id="incorrect-count" class="font-bold text-lg text-red-600">0</span>
+                    </div>
+                     <div class="flex justify-between items-center py-1 border-t mt-2 pt-2">
+                        <span class="text-gray-800 font-bold">Total Preguntas</span>
+                        <span id="total-summary" class="font-bold text-lg text-gray-800">25</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón Volver al Inicio (va a index.html) -->
+            <button id="restart-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg mt-8">
+                Volver al Inicio
+            </button>
+        </div>
+
+        <!-- Mensaje de Racional (oculto) --><div id="rationale-box" class="mt-6 p-4 border-l-4 border-blue-500 bg-blue-50 hidden rounded-md shadow-inner">
+            <p class="font-bold text-blue-800">Razón:</p>
+            <p id="rationale-text" class="text-sm text-blue-700 mt-1"></p>
+        </div>
+
+        <!-- Controles --><div id="controls" class="mt-6 flex justify-end space-x-4">
+            <button id="next-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 hidden shadow-md">
+                Siguiente
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Array de 25 preguntas
+        const quizData = [
+            {
+                q: "¿Qué es una 'Hoja de Despacho'?",
+                options: [
+                    "Un documento que registra la recepción y entrega de productos en bodega.",
+                    "Un informe financiero de costos de transporte.",
+                    "Un manual de capacitación para nuevos empleados.",
+                    "Una solicitud de compra al proveedor."
+                ],
+                answer: 0,
+                rationale: "La Hoja de Despacho (Pág. 3) es un documento clave que registra la recepción y entrega, asegurando el control del inventario."
+            },
+            {
+                q: "¿Cuál es la 'Importancia Logística' de la hoja de despacho?",
+                options: [
+                    "Permite mantener registros precisos, evitar pérdidas y optimizar el manejo de productos.",
+                    "Se utiliza para calcular los salarios del personal de bodega.",
+                    "Define la estrategia de marketing del supermercado.",
+                    "Establece los precios de venta al público."
+                ],
+                answer: 0,
+                rationale: "Es crucial (Pág. 3) para mantener registros precisos, evitar pérdidas y optimizar el manejo de productos."
+            },
+            {
+                q: "¿Cuál es el 'Objetivo de la Capacitación' sobre hojas de despacho?",
+                options: [
+                    "Aprender a diseñar un nuevo logo para la bodega.",
+                    "Entender y aplicar las hojas de despacho eficientemente.",
+                    "Eliminar el uso de software y volver a métodos manuales.",
+                    "Incrementar los costos logísticos."
+                ],
+                answer: 1,
+                rationale: "El objetivo (Pág. 4) es 'entender y aplicar las hojas de despacho eficientemente, mejorando la logística y el control de inventarios'."
+            },
+            {
+                q: "¿Cuál de estos NO es un componente clave listado en la hoja de despacho?",
+                options: [
+                    "Fecha",
+                    "Número de Despacho",
+                    "Proveedor",
+                    "Precio de la Competencia"
+                ],
+                answer: 3,
+                rationale: "La página 6 lista Fecha, Número de Despacho y Proveedor como componentes clave. El precio de la competencia no es parte de este documento."
+            },
+            {
+                q: "¿Por qué es crucial el campo 'Número de Despacho'?",
+                options: [
+                    "Para la identificación y rastreo de los productos.",
+                    "Para saber la temperatura del camión.",
+                    "Para registrar la hora de almuerzo del personal.",
+                    "Para calcular el costo del producto."
+                ],
+                answer: 0,
+                rationale: "El número de despacho (Pág. 6) es 'crucial para la identificación y rastreo de los productos'."
+            },
+            {
+                q: "¿Qué permite la 'Trazabilidad' en la gestión de inventarios?",
+                options: [
+                    "Identificar el origen y el destino de cada producto para auditorías efectivas.",
+                    "Reducir el número de empleados en la bodega.",
+                    "Aumentar el espacio de almacenamiento disponible.",
+                    "Negociar mejores precios con los proveedores."
+                ],
+                answer: 0,
+                rationale: "La Trazabilidad (Pág. 8) 'permite identificar el origen y el destino de cada producto', garantizando auditorías efectivas."
+            },
+            {
+                q: "¿Qué verifica el personal de almacén durante la 'Recepción de Pedido'?",
+                options: [
+                    "Que el proveedor traiga productos extra gratis.",
+                    "Que la cantidad y los productos coincidan con la hoja de despacho.",
+                    "La firma del gerente de finanzas.",
+                    "El pronóstico del tiempo para la próxima semana."
+                ],
+                answer: 1,
+                rationale: "Durante la Recepción de Pedido (Pág. 10), el personal 'verifica que la cantidad y los productos coincidan con la hoja de despacho'."
+            },
+            {
+                q: "Para 'minimizar errores en la hoja de despacho', ¿qué tipo de procedimientos se implementan?",
+                options: [
+                    "Procedimientos de marketing digital.",
+                    "Procedimientos de contratación de personal.",
+                    "Procedimientos de validación de datos.",
+                    "Procedimientos de limpieza de estanterías."
+                ],
+                answer: 2,
+                rationale: "La página 10 menciona que se implementan 'procedimientos de validación para minimizar errores... garantizando la integridad de la información'."
+            },
+            {
+                q: "¿Cómo ayudan las hojas de despacho a la 'Actualización de Stock'?",
+                options: [
+                    "Facilitan la actualización del stock en tiempo real, registrando entradas y salidas.",
+                    "Solo registran las salidas, nunca las entradas.",
+                    "Son un respaldo físico que se revisa solo a fin de año.",
+                    "Ayudan a calcular la depreciación del stock."
+                ],
+                answer: 0,
+                rationale: "Las hojas de despacho (Pág. 13) 'facilitan la actualización del stock en tiempo real, permitiendo registrar entradas y salidas'."
+            },
+            {
+                q: "¿Cuál es una consecuencia directa de los 'errores' en las hojas de despacho?",
+                options: [
+                    "Exceso de personal en bodega.",
+                    "Discrepancias de inventario (productos faltantes o sobrantes).",
+                    "Mejora en la relación con los proveedores.",
+                    "Reducción automática de precios."
+                ],
+                answer: 1,
+                rationale: "Los errores (Pág. 14) 'pueden llevar a discrepancias de inventario, resultando en productos faltantes o sobrantes'."
+            },
+            {
+                q: "Los 'registros incompletos' en las hojas de despacho generan costos adicionales debido a:",
+                options: [
+                    "La necesidad de comprar más camiones.",
+                    "El aumento en la moral del equipo.",
+                    "Demoras en la reposición de stock y tiempo perdido en auditorías.",
+                    "La optimización automática del software."
+                ],
+                answer: 2,
+                rationale: "Los registros incompletos (Pág. 14) 'generan costos adicionales, incluyendo demoras en la reposición de stock y tiempos perdidos en auditorías'."
+            },
+            {
+                q: "¿Qué tipo de hoja de despacho se utiliza para optimizar el traslado de inventarios entre diferentes secciones?",
+                options: [
+                    "Hojas para recepción de proveedores.",
+                    "Hojas para devolución.",
+                    "Hojas para despacho interno.",
+                    "Hojas de control de calidad."
+                ],
+                answer: 2,
+                rationale: "Las hojas para despacho interno (Pág. 16) 'optimizan el traslado de inventarios entre diferentes secciones'."
+            },
+            {
+                q: "¿Cuál es la diferencia clave entre las Hojas de Recepción y las Hojas de Despacho?",
+                options: [
+                    "La recepción es digital y el despacho es en papel.",
+                    "La recepción registra la llegada (ingreso) y el despacho documenta la salida.",
+                    "La recepción es para productos frescos y el despacho para productos secos.",
+                    "No hay ninguna diferencia."
+                ],
+                answer: 1,
+                rationale: "La página 17 explica que 'Las hojas de recepción se utilizan para registrar la llegada' y 'Las hojas de despacho se emplean para documentar la salida'."
+            },
+            {
+                q: "Para productos no perecederos, ¿qué tipo de hoja de despacho se utilizaría?",
+                options: [
+                    "Hoja de despacho para productos frescos.",
+                    "Hoja de despacho para productos no perecederos.",
+                    "Hoja de despacho para devoluciones y reclamaciones.",
+                    "Hoja de despacho para productos de limpieza."
+                ],
+                answer: 1,
+                rationale: "La página 19 muestra un ejemplo de 'Hoja de despacho para productos no perecederos'."
+            },
+            {
+                q: "¿Cuáles son las tres 'Buenas Prácticas' mencionadas para el manejo de hojas de despacho?",
+                options: [
+                    "Rapidez, Costo y Software.",
+                    "Precisión, Verificación y Claridad.",
+                    "Firma, Sello y Copia.",
+                    "Digital, Manual y Mixto."
+                ],
+                answer: 1,
+                rationale: "La página 20 lista 'Precisión', 'Verificación' y 'Claridad' como buenas prácticas."
+            },
+            {
+                q: "¿Cómo se puede 'Evitar errores' al optimizar el proceso de las hojas de despacho?",
+                options: [
+                    "Implementando revisiones sistemáticas.",
+                    "Usando solo formatos de papel.",
+                    "Reduciendo la comunicación entre áreas.",
+                    "Realizando la verificación solo al final del mes."
+                ],
+                answer: 0,
+                rationale: "La página 22 indica que 'Implementar revisiones sistemáticas puede reducir significativamente los errores comunes'."
+            },
+            {
+                q: "¿Cuál es un beneficio de usar 'Formatos adecuados' (estandarizados)?",
+                options: [
+                    "Aumentan la confusión entre los usuarios.",
+                    "Hacen el proceso más lento y burocrático.",
+                    "Aseguran una correcta recolección de información y simplifican el proceso.",
+                    "Eliminan la necesidad de software."
+                ],
+                answer: 2,
+                rationale: "La página 22 explica que los formatos estandarizados 'asegura una correcta recolección de información, simplificando el proceso'."
+            },
+            {
+                q: "¿Por qué es importante la 'Organización' en la gestión de las hojas de despacho?",
+                options: [
+                    "Garantiza que la información sea fácilmente accesible, minimizando retrasos.",
+                    "Solo es importante por estética.",
+                    "Aumenta la necesidad de auditorías.",
+                    "Previene la digitalización."
+                ],
+                answer: 0,
+                rationale: "La organización (Pág. 23) 'garantiza que la información sea fácilmente accesible, lo que minimiza retrasos'."
+            },
+            {
+                q: "¿Qué herramienta tecnológica 'agiliza el registro de productos y reduce errores'?",
+                options: [
+                    "El software de gestión.",
+                    "Los códigos de barras (y sus escáneres).",
+                    "La digitalización en general.",
+                    "Los sistemas de radiofrecuencia."
+                ],
+                answer: 1,
+                rationale: "La página 25 indica que 'El uso de códigos de barras agiliza el registro de productos y reduce errores'."
+            },
+            {
+                q: "La 'Digitalización' del proceso de despacho mejora principalmente:",
+                options: [
+                    "El control y la trazabilidad, facilitando el seguimiento en tiempo real.",
+                    "El costo de la infraestructura física.",
+                    "La comodidad de las sillas de oficina.",
+                    "La velocidad de los camiones de despacho."
+                ],
+                answer: 0,
+                rationale: "La digitalización (Pág. 25) 'mejora el control y la trazabilidad, facilitando el seguimiento de productos en tiempo real'."
+            },
+            {
+                q: "Los 'Escáneres de códigos de barras' permiten registrar productos de manera:",
+                options: [
+                    "Lenta pero segura.",
+                    "Rápida y precisa.",
+                    "Económica pero con muchos errores.",
+                    "Automática sin intervención humana."
+                ],
+                answer: 1,
+                rationale: "Los escáneres (Pág. 26) 'permiten registrar productos de manera rápida y precisa, agilizando el proceso'."
+            },
+            {
+                q: "¿Cuál es un 'Desafío Común' en la gestión de hojas de despacho?",
+                options: [
+                    "Exceso de firmas en los documentos.",
+                    "Hojas Extraviadas o Datos Erróneos.",
+                    "Demasiada capacitación del personal.",
+                    "Software demasiado rápido."
+                ],
+                answer: 1,
+                rationale: "La página 28 lista 'Datos Erróneos', 'Hojas Extraviadas' y 'Falta de Firma' como desafíos comunes."
+            },
+            {
+                q: "¿Qué problema causa la 'Falta de Firma' en una hoja de despacho?",
+                options: [
+                    "Mejora la eficiencia del proceso.",
+                    "Ahorra tiempo en la auditoría.",
+                    "Puede invalidar documentos y complicar la auditoría y la responsabilidad.",
+                    "Activa una alerta automática en el sistema WMS."
+                ],
+                answer: 2,
+                rationale: "La 'Falta de Firma' (Pág. 28) 'puede invalidar documentos, complicando la auditoría y generando problemas de responsabilidad'."
+            },
+            {
+                q: "La 'Revisión Regular' de las hojas de despacho permite:",
+                options: [
+                    "Identificar errores y asegurar el cumplimiento de los procedimientos.",
+                    "Aumentar el tiempo de trabajo del personal.",
+                    "Justificar la compra de más estanterías.",
+                    "Reducir la frecuencia de las entregas."
+                ],
+                answer: 0,
+                rationale: "La Revisión Regular (Pág. 29) 'permite identificar errores y asegurar el cumplimiento de los procedimientos establecidos'."
+            },
+            {
+                q: "Según la conclusión, un uso correcto de las hojas de despacho permite:",
+                options: [
+                    "Un control preciso del inventario.",
+                    "Eliminar la necesidad de proveedores.",
+                    "Aumentar los costos operativos.",
+                    "Reducir la eficiencia logística."
+                ],
+                answer: 0,
+                rationale: "La conclusión (Pág. 31) destaca que 'Un uso correcto de las hojas de despacho permite un control preciso del inventario'."
+            }
+        ];
+
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let quizActive = true;
+        const totalQuestions = quizData.length; // Total es 25
+
+        // Selectores de elementos del DOM
+        const $ = selector => document.querySelector(selector);
+        const $all = selector => document.querySelectorAll(selector);
+
+        const questionText = $("#question-text");
+        const answerOptionsWrapper = $("#answer-options-wrapper");
+        const questionCounter = $("#question-counter");
+        const scoreDisplay = $("#score-display");
+        const nextButton = $("#next-button");
+        const rationaleBox = $("#rationale-box");
+        const rationaleText = $("#rationale-text");
+        const questionView = $("#question-view");
+        const resultsView = $("#results-view");
+        const restartButton = $("#restart-button");
+
+        // Selectores para la pantalla de resultados
+        const finalScoreBox = $("#final-score-box");
+        const precisionBox = $("#precision-box");
+        const correctCountEl = $("#correct-count");
+        const incorrectCountEl = $("#incorrect-count");
+        const totalSummaryEl = $("#total-summary"); 
+
+        /**
+         * Carga la pregunta actual en la UI
+         */
+        function loadQuestion() {
+            if (currentQuestionIndex >= totalQuestions) {
+                showResults();
+                return;
+            }
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            
+            quizActive = true;
+            nextButton.classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+
+            questionText.textContent = `${currentQuestionIndex + 1}. ${currentQuestion.q}`;
+            questionCounter.textContent = `Pregunta ${currentQuestionIndex + 1} de ${totalQuestions}`;
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            
+            answerOptionsWrapper.innerHTML = '';
+            answerOptionsWrapper.classList.remove('options-disabled'); 
+            
+            currentQuestion.options.forEach((optionText, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'answer-option';
+                optionDiv.textContent = optionText;
+                optionDiv.setAttribute('data-index', index);
+                
+                optionDiv.addEventListener('click', () => checkAnswer(index, optionDiv));
+                answerOptionsWrapper.appendChild(optionDiv);
+            });
+        }
+
+        /**
+         * Comprueba la respuesta, da feedback y muestra el botón Siguiente.
+         */
+        function checkAnswer(selectedIndex, selectedElement) {
+            if (!quizActive) return; 
+            quizActive = false; 
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuestion.answer;
+
+            answerOptionsWrapper.classList.add('options-disabled');
+
+            const correctElement = $(`[data-index='${currentQuestion.answer}']`);
+
+            if (isCorrect) {
+                score++;
+                selectedElement.classList.add('correct');
+            } else {
+                selectedElement.classList.add('incorrect');
+                if (correctElement) {
+                    correctElement.classList.add('correct'); 
+                }
+            }
+            
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            rationaleText.textContent = currentQuestion.rationale;
+            rationaleBox.classList.remove('hidden');
+            nextButton.classList.remove('hidden'); 
+        }
+
+        function handleNext() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        /**
+         * Muestra la pantalla de resultados con el formato solicitado.
+         */
+        function showResults() {
+            questionView.classList.add('hidden');
+            $("#controls").classList.add('hidden');
+            $("#status-bar").classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+            resultsView.classList.remove('hidden');
+            
+            const correctCount = score;
+            const incorrectCount = totalQuestions - score;
+            const precision = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+            finalScoreBox.textContent = `${correctCount}/${totalQuestions}`;
+            precisionBox.textContent = `${precision}%`;
+            correctCountEl.textContent = correctCount;
+            incorrectCountEl.textContent = incorrectCount;
+            totalSummaryEl.textContent = totalQuestions; 
+        }
+
+        /**
+         * El botón de reinicio ahora navega a index.html
+         */
+        function restartQuiz() {
+            window.location.href = 'index.html';
+        }
+
+        // Asignar Eventos
+        nextButton.addEventListener('click', handleNext);
+        restartButton.addEventListener('click', restartQuiz);
+
+        // Iniciar el quiz
+        loadQuestion();
+    </script>
+</body>
+</html>

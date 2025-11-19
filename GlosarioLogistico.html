@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuestionario: Glosario Logístico</title>
+    <!-- Carga de Tailwind CSS para el diseño --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #3b82f6; /* Blue-500 */
+            --secondary-color: #10b981; /* Emerald-500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+        .answer-option {
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* Gray-300 */
+            color: #374151; /* Gray-700 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+        }
+        .answer-option:hover:not(.options-disabled) {
+            background-color: #eff6ff; /* Blue-50 */
+            border-color: var(--primary-color);
+        }
+        .correct {
+            background-color: #d1fae5 !important; /* Green-100 */
+            border-color: var(--secondary-color) !important;
+            color: #065f46 !important; /* Green-800 */
+            font-weight: 600;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important; /* Red-100 */
+            border-color: #ef4444 !important; /* Red-500 */
+            color: #991b1b !important; /* Red-800 */
+            font-weight: 600;
+        }
+        .options-disabled > .answer-option {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+
+    <div id="quiz-container" class="w-full max-w-lg bg-white shadow-xl rounded-xl p-6 md:p-8">
+        
+        <!-- Vista de Pregunta --><div id="question-view">
+            <!-- Contador y Puntaje --><div id="status-bar" class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm font-medium text-gray-600 mb-6 space-y-2 sm:space-y-0">
+                <span id="question-counter" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Pregunta 1 de 25</span>
+                <span id="score-display" class="bg-green-100 text-green-800 px-3 py-1 rounded-full w-full sm:w-auto text-center">Puntaje: 0</span>
+            </div>
+
+            <h2 id="question-text" class="text-xl font-semibold text-gray-700 mb-6"></h2>
+            <div id="answer-options-wrapper" class="space-y-4">
+                <!-- Opciones se insertan aquí --></div>
+        </div>
+
+        <!-- Vista de Resultados --><div id="results-view" class="hidden text-center p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">¡Lo has conseguido! Has completado el cuestionario.</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-blue-50 p-4 rounded-lg shadow-inner border-t-4 border-blue-400">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Puntuación</p>
+                    <p id="final-score-box" class="text-4xl font-bold text-blue-600">0/25</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg shadow-inner border-t-4 border-green-400">
+                    <p class="text-sm font-medium text-gray-500 mb-1">Precisión</p>
+                    <p id="precision-box" class="text-4xl font-bold text-green-600">0%</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner text-left text-sm border-t-4 border-gray-400">
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-gray-600 font-semibold">Correctas</span>
+                        <span id="correct-count" class="font-bold text-lg text-green-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-gray-600 font-semibold">Incorrectas</span>
+                        <span id="incorrect-count" class="font-bold text-lg text-red-600">0</span>
+                    </div>
+                     <div class="flex justify-between items-center py-1 border-t mt-2 pt-2">
+                        <span class="text-gray-800 font-bold">Total Preguntas</span>
+                        <span id="total-summary" class="font-bold text-lg text-gray-800">25</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón Volver al Inicio (va a index.html) -->
+            <button id="restart-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg mt-8">
+                Volver al Inicio
+            </button>
+        </div>
+
+        <!-- Mensaje de Racional (oculto) --><div id="rationale-box" class="mt-6 p-4 border-l-4 border-blue-500 bg-blue-50 hidden rounded-md shadow-inner">
+            <p class="font-bold text-blue-800">Razón:</p>
+            <p id="rationale-text" class="text-sm text-blue-700 mt-1"></p>
+        </div>
+
+        <!-- Controles --><div id="controls" class="mt-6 flex justify-end space-x-4">
+            <button id="next-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 hidden shadow-md">
+                Siguiente
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Array de 25 preguntas
+        const quizData = [
+            {
+                q: "¿Qué término se refiere al proceso de adquirir, gestionar y suministrar los recursos necesarios para la operación?",
+                options: [
+                    "Aprovisionamiento",
+                    "Abastecimiento",
+                    "Logística Inversa",
+                    "Picking"
+                ],
+                answer: 1,
+                rationale: "Abastecimiento (Pág. 2) implica asegurar la disponibilidad de productos y materiales en el momento adecuado."
+            },
+            {
+                q: "¿Qué es un 'Almacén automático'?",
+                options: [
+                    "Un almacén que funciona solo de noche.",
+                    "Un almacén equipado con robots y sistemas que realizan tareas de forma autónoma.",
+                    "Un sistema de software para gestionar inventarios.",
+                    "Un almacén que solo guarda un tipo de producto."
+                ],
+                answer: 1,
+                rationale: "Un Almacén automático (Pág. 4) utiliza automatización (robots, transportadores) para aumentar la eficiencia y reducir la intervención humana."
+            },
+            {
+                q: "¿Qué significa 'Almacenaje en bloque'?",
+                options: [
+                    "Almacenar productos en estanterías altas.",
+                    "Almacenar productos en grandes bloques sin separación física.",
+                    "Un método donde cada producto tiene una ubicación fija.",
+                    "Almacenar productos bloqueando los pasillos."
+                ],
+                answer: 1,
+                rationale: "El Almacenaje en bloque (Pág. 5) es una estrategia para productos que no requieren acceso individualizado."
+            },
+            {
+                q: "¿Qué significa B2B en logística?",
+                options: [
+                    "Back to Basics (Volver a lo básico).",
+                    "Business to Consumer (De Empresa a Consumidor).",
+                    "Business to Business (De Empresa a Empresa).",
+                    "Boxes to Boxes (De Cajas a Cajas)."
+                ],
+                answer: 2,
+                rationale: "B2B (Pág. 9) se refiere a transacciones comerciales y relaciones entre empresas, como fabricantes y mayoristas."
+            },
+            {
+                q: "El término 'B2C' se refiere a transacciones entre:",
+                options: [
+                    "Consumidor a Consumidor.",
+                    "Bodega a Centro de Distribución.",
+                    "Empresas y consumidores finales.",
+                    "Empresa a Empresa."
+                ],
+                answer: 2,
+                rationale: "B2C (Pág. 10/11) significa 'Business to Consumer', donde los productos se entregan directamente a los clientes finales."
+            },
+            {
+                q: "¿Qué es un 'Centro de distribución y logística'?",
+                options: [
+                    "Un lugar dedicado al almacenamiento y distribución de productos, gestionando pedidos.",
+                    "Una tienda física que vende productos logísticos.",
+                    "La oficina central de una empresa de transporte.",
+                    "Un sistema de software para planificar rutas."
+                ],
+                answer: 0,
+                rationale: "Un Centro de distribución (Pág. 13) es un lugar donde se gestionan actividades como almacenamiento, recogida y preparación de pedidos."
+            },
+            {
+                q: "¿Qué es la 'Consolidación logística'?",
+                options: [
+                    "Dividir un envío grande en partes más pequeñas.",
+                    "El proceso de verificar la calidad de un producto.",
+                    "Combinar múltiples cargas pequeñas en un solo envío para reducir costes.",
+                    "El proceso de almacenar productos en contenedores."
+                ],
+                answer: 2,
+                rationale: "La Consolidación logística (Pág. 14) es la práctica de combinar cargas pequeñas para mejorar la eficiencia del transporte."
+            },
+            {
+                q: "¿Qué es el 'Crossdocking'?",
+                options: [
+                    "Un método donde los productos se trasladan de recepción a envío sin almacenamiento intermedio.",
+                    "Un tipo de estantería en forma de cruz.",
+                    "El proceso de verificar dos veces un pedido (double-checking).",
+                    "Una estrategia de almacenamiento a largo plazo."
+                ],
+                answer: 0,
+                rationale: "El Crossdocking (Pág. 15) acelera la distribución al eliminar el paso de almacenamiento, moviendo la mercancía directamente de la entrada a la salida."
+            },
+            {
+                q: "Una 'Dark store' es:",
+                options: [
+                    "Un almacén sin iluminación para ahorrar energía.",
+                    "Un supermercado que opera principalmente como un centro de cumplimiento en línea (e-commerce).",
+                    "Una bodega que solo almacena productos de color oscuro.",
+                    "Un término para un almacén con alta tasa de robos."
+                ],
+                answer: 1,
+                rationale: "Una Dark store (Pág. 16) es una tienda cerrada al público, optimizada para atender pedidos en línea (picking) y ofrecer entregas."
+            },
+            {
+                q: "¿Qué determina la 'Cantidad Económica de Pedido' (EOQ)?",
+                options: [
+                    "La cantidad óptima de producto a ordenar para minimizar los costes totales de inventario.",
+                    "El precio de venta final de un producto.",
+                    "La cantidad máxima que cabe en un contenedor.",
+                    "El tiempo que tarda un proveedor en entregar."
+                ],
+                answer: 0,
+                rationale: "EOQ (Pág. 18) es un modelo que busca minimizar la suma de los costes de almacenamiento y los costes de pedido."
+            },
+            {
+                q: "¿Qué método de gestión de inventario prioriza los productos con fecha de caducidad más próxima?",
+                options: [
+                    "FIFO (First In, First Out)",
+                    "LIFO (Last In, First Out)",
+                    "FEFO (First Expired, First Out)",
+                    "EOQ (Cantidad Económica de Pedido)"
+                ],
+                answer: 2,
+                rationale: "FEFO (Pág. 20) es el método específico que gestiona el inventario basándose en la fecha de vencimiento, no en la fecha de entrada."
+            },
+            {
+                q: "El método 'FIFO' se basa en la premisa de que:",
+                options: [
+                    "Los productos más caros se venden primero.",
+                    "Los productos más nuevos se venden primero.",
+                    "Los productos con fecha de vencimiento más próxima se venden primero.",
+                    "Los productos que ingresaron primero (más antiguos) son los primeros en ser vendidos."
+                ],
+                answer: 3,
+                rationale: "FIFO (Pág. 21) asume que los productos más antiguos (First In) son los que deben salir primero (First Out)."
+            },
+            {
+                q: "¿Qué es el 'Flujo logístico'?",
+                options: [
+                    "El movimiento de dinero en la empresa.",
+                    "El proceso de planificación, ejecución y control de la distribución eficiente de productos.",
+                    "La cantidad de agua utilizada en la limpieza de la bodega.",
+                    "La velocidad a la que se mueven los operadores de picking."
+                ],
+                answer: 1,
+                rationale: "El Flujo logístico (Pág. 22) se refiere al proceso completo de distribución de productos desde el origen hasta el destino."
+            },
+            {
+                q: "La 'Gestión de la cadena de suministro' (Supply Chain Management) se enfoca en:",
+                options: [
+                    "Optimizar la eficiencia y colaboración en todas las actividades (adquisición, producción, distribución).",
+                    "Gestionar únicamente el transporte de última milla.",
+                    "Administrar solo el inventario dentro del almacén.",
+                    "Reducir la cantidad de proveedores al mínimo."
+                ],
+                answer: 0,
+                rationale: "La SCM (Pág. 23) tiene un objetivo integral, optimizando todas las actividades y la colaboración a lo largo de toda la cadena."
+            },
+            {
+                q: "La actividad de 'Handling' se refiere a:",
+                options: [
+                    "La gestión de devoluciones de clientes.",
+                    "El uso de software ERP.",
+                    "La manipulación de mercancías (carga, descarga, movimiento) en un entorno logístico.",
+                    "La negociación de contratos con transportistas."
+                ],
+                answer: 2,
+                rationale: "Handling (Pág. 25) son las actividades relacionadas con la manipulación física de la mercancía, como la carga y descarga."
+            },
+            {
+                q: "¿Qué es un 'Hub logístico'?",
+                options: [
+                    "Un tipo especial de contenedor marítimo.",
+                    "Un punto central de concentración y distribución que agiliza la transferencia de carga.",
+                    "El software principal de gestión de almacén.",
+                    "Un almacén dedicado exclusivamente a productos devueltos."
+                ],
+                answer: 1,
+                rationale: "Un Hub logístico (Pág. 26) es un punto central (nodo) usado para consolidar y redistribuir mercancías entre diferentes rutas."
+            },
+            {
+                q: "La estrategia 'Just in Time' (JIT) busca:",
+                options: [
+                    "Mantener un gran exceso de existencias por si acaso (Just in Case).",
+                    "Reducir al mínimo la cantidad de inventario almacenado, adquiriendo productos justo cuando se necesitan.",
+                    "Entregar todos los pedidos exactamente a las 10:00 AM.",
+                    "Utilizar solo transporte aéreo para mayor velocidad."
+                ],
+                answer: 1,
+                rationale: "Just in Time (Pág. 30) es una estrategia que busca la máxima eficiencia reduciendo el inventario (y sus costos) al mínimo."
+            },
+            {
+                q: "El 'Lead Time' (Tiempo de Entrega) es:",
+                options: [
+                    "El tiempo que un producto pasa en la estantería antes de venderse.",
+                    "El período de tiempo desde que se realiza un pedido hasta que se entrega.",
+                    "El tiempo que tarda un operador en completar una tarea de picking.",
+                    "El tiempo de vida útil de un producto perecedero."
+                ],
+                answer: 1,
+                rationale: "El Lead Time (Pág. 31) es el tiempo total de espera desde que se pide un producto hasta que está disponible para su uso."
+            },
+            {
+                q: "¿Qué establece la 'Ley de Pareto' (Principio 80/20) en logística?",
+                options: [
+                    "El 80% de los productos tienen un 20% de descuento.",
+                    "Aproximadamente el 80% de los resultados (ej. ventas) provienen del 20% de las causas (ej. productos).",
+                    "Se debe almacenar un 80% de stock y dejar un 20% de espacio libre.",
+                    "El 80% de los empleados debe trabajar en picking y el 20% en recepción."
+                ],
+                answer: 1,
+                rationale: "La Ley de Pareto (Pág. 32) se usa para identificar que, a menudo, el 20% de los productos (Clase A) representan el 80% de la demanda."
+            },
+            {
+                q: "La 'Logística inversa' se ocupa de:",
+                options: [
+                    "El flujo de productos desde el fabricante hacia el consumidor.",
+                    "El flujo de productos desde el consumidor de vuelta al fabricante (devolución, reciclaje).",
+                    "La logística de productos que se mueven en reversa en el camión.",
+                    "El proceso de almacenar productos en orden inverso (LIFO)."
+                ],
+                answer: 1,
+                rationale: "La Logística inversa (Pág. 33) gestiona el flujo de productos \"hacia atrás\" en la cadena de suministro, para devoluciones o reciclaje."
+            },
+            {
+                q: "Un 'Operador logístico integral' es una empresa que:",
+                options: [
+                    "Ofrece solo servicio de transporte de última milla.",
+                    "Vende software ERP y WMS.",
+                    "Fabrica contenedores y pallets.",
+                    "Ofrece una amplia gama de servicios para cubrir todas las etapas de la cadena de suministro."
+                ],
+                answer: 3,
+                rationale: "Un Operador logístico integral (Pág. 35) proporciona una solución logística completa (transporte, almacén, gestión de inventario, etc.)."
+            },
+            {
+                q: "El 'Picking' es la actividad que implica:",
+                options: [
+                    "La descarga de camiones en la zona de recepción.",
+                    "La selección y extracción de productos específicos de un almacén para cumplir con un pedido.",
+                    "El embalaje de productos para envío internacional.",
+                    "La auditoría anual del inventario."
+                ],
+                answer: 1,
+                rationale: "El Picking (Pág. 37) es la actividad de seleccionar (recoger) los productos de las estanterías para preparar un pedido."
+            },
+            {
+                q: "¿Qué es un sistema 'ERP' (Planificación de recursos empresariales)?",
+                options: [
+                    "Un robot automatizado para almacenes.",
+                    "Un tipo de contenedor marítimo.",
+                    "Un software que permite a las empresas gestionar eficazmente sus recursos (inventario, contabilidad, producción).",
+                    "Una técnica de picking manual."
+                ],
+                answer: 2,
+                rationale: "Un ERP (Pág. 39) es un software de gestión integral que ayuda a coordinar y optimizar la cadena de suministro y otros recursos."
+            },
+            {
+                q: "El 'Stock de seguridad' (o stock de reserva) se mantiene para:",
+                options: [
+                    "Hacer frente a fluctuaciones imprevistas en la demanda o retrasos en la entrega.",
+                    "Vender en ofertas y liquidaciones.",
+                    "Cumplir con la ley de Pareto.",
+                    "Reemplazar el inventario principal."
+                ],
+                answer: 0,
+                rationale: "El Stock de seguridad (Pág. 44) es una cantidad adicional de productos para evitar quiebres de stock ante imprevistos."
+            },
+            {
+                q: "¿Qué es la 'Trazabilidad' en la cadena de suministro?",
+                options: [
+                    "El diseño del layout de la bodega.",
+                    "La capacidad de rastrear y seguir el movimiento y estado de un producto en todas sus etapas.",
+                    "El tiempo que tarda un producto en vencerse.",
+                    "El costo total de la operación logística."
+                ],
+                answer: 1,
+                rationale: "La Trazabilidad (Pág. 47) es la capacidad de seguir el rastro de un producto a lo largo de toda la cadena de suministro."
+            }
+        ];
+
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let quizActive = true;
+        const totalQuestions = quizData.length; // Total es 25
+
+        // Selectores de elementos del DOM
+        const $ = selector => document.querySelector(selector);
+        const $all = selector => document.querySelectorAll(selector);
+
+        const questionText = $("#question-text");
+        const answerOptionsWrapper = $("#answer-options-wrapper");
+        const questionCounter = $("#question-counter");
+        const scoreDisplay = $("#score-display");
+        const nextButton = $("#next-button");
+        const rationaleBox = $("#rationale-box");
+        const rationaleText = $("#rationale-text");
+        const questionView = $("#question-view");
+        const resultsView = $("#results-view");
+        const restartButton = $("#restart-button");
+
+        // Selectores para la pantalla de resultados
+        const finalScoreBox = $("#final-score-box");
+        const precisionBox = $("#precision-box");
+        const correctCountEl = $("#correct-count");
+        const incorrectCountEl = $("#incorrect-count");
+        const totalSummaryEl = $("#total-summary"); 
+
+        /**
+         * Carga la pregunta actual en la UI
+         */
+        function loadQuestion() {
+            if (currentQuestionIndex >= totalQuestions) {
+                showResults();
+                return;
+            }
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            
+            quizActive = true;
+            nextButton.classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+
+            questionText.textContent = `${currentQuestionIndex + 1}. ${currentQuestion.q}`;
+            questionCounter.textContent = `Pregunta ${currentQuestionIndex + 1} de ${totalQuestions}`;
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            
+            answerOptionsWrapper.innerHTML = '';
+            answerOptionsWrapper.classList.remove('options-disabled'); 
+            
+            currentQuestion.options.forEach((optionText, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'answer-option';
+                optionDiv.textContent = optionText;
+                optionDiv.setAttribute('data-index', index);
+                
+                optionDiv.addEventListener('click', () => checkAnswer(index, optionDiv));
+                answerOptionsWrapper.appendChild(optionDiv);
+            });
+        }
+
+        /**
+         * Comprueba la respuesta, da feedback y muestra el botón Siguiente.
+         */
+        function checkAnswer(selectedIndex, selectedElement) {
+            if (!quizActive) return; 
+            quizActive = false; 
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuestion.answer;
+
+            answerOptionsWrapper.classList.add('options-disabled');
+
+            const correctElement = $(`[data-index='${currentQuestion.answer}']`);
+
+            if (isCorrect) {
+                score++;
+                selectedElement.classList.add('correct');
+            } else {
+                selectedElement.classList.add('incorrect');
+                if (correctElement) {
+                    correctElement.classList.add('correct'); 
+                }
+            }
+            
+            scoreDisplay.textContent = `Puntaje: ${score}`;
+            rationaleText.textContent = currentQuestion.rationale;
+            rationaleBox.classList.remove('hidden');
+            nextButton.classList.remove('hidden'); 
+        }
+
+        function handleNext() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        /**
+         * Muestra la pantalla de resultados con el formato solicitado.
+         */
+        function showResults() {
+            questionView.classList.add('hidden');
+            $("#controls").classList.add('hidden');
+            $("#status-bar").classList.add('hidden');
+            rationaleBox.classList.add('hidden');
+            resultsView.classList.remove('hidden');
+            
+            const correctCount = score;
+            const incorrectCount = totalQuestions - score;
+            const precision = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+            finalScoreBox.textContent = `${correctCount}/${totalQuestions}`;
+            precisionBox.textContent = `${precision}%`;
+            correctCountEl.textContent = correctCount;
+            incorrectCountEl.textContent = incorrectCount;
+            totalSummaryEl.textContent = totalQuestions; 
+        }
+
+        /**
+         * El botón de reinicio ahora navega a index.html
+         */
+        function restartQuiz() {
+            window.location.href = 'index.html';
+        }
+
+        // Asignar Eventos
+        nextButton.addEventListener('click', handleNext);
+        restartButton.addEventListener('click', restartQuiz);
+
+        // Iniciar el quiz
+        loadQuestion();
+    </script>
+</body>
+</html>
